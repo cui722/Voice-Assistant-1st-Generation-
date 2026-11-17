@@ -10,7 +10,28 @@ textarea{font:14px monospace}pre{white-space:pre-wrap;overflow-wrap:anywhere}
 button{padding:10px 18px;margin:10px 8px 10px 0;cursor:pointer}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 @media(max-width:750px){.grid{grid-template-columns:1fr}}
+.topbar{position:fixed;top:12px;right:16px;display:flex;gap:0}
+.topbar button{margin:0;border:1px solid #ccd4e0;background:white}
+.topbar button.active{background:#182334;color:white}
+.hidden{display:none}
+#user-view{margin-top:80px}
+#user-input{box-sizing:border-box;width:100%;padding:14px;font:18px system-ui;border:1px solid #ccd4e0;border-radius:8px}
+#user-reply{margin-top:16px;min-height:1.5em}
 </style>
+
+<div class="topbar">
+  <button id="tab-user">User</button>
+  <button id="tab-test">Test</button>
+</div>
+
+<!-- User view: one input box -->
+<section id="user-view" class="hidden">
+  <input id="user-input" type="text" placeholder="Type a command and press Enter" autocomplete="off">
+  <p id="user-reply"></p>
+</section>
+
+<!-- Test view: original page -->
+<section id="test-view">
 <h1>ReCheck Voice</h1>
 <p>Week 1 | Text baseline | All actions run in the simulator</p>
 <p id="mode"></p>
@@ -23,9 +44,25 @@ button{padding:10px 18px;margin:10px 8px 10px 0;cursor:pointer}
 <section><h3>Conversation</h3><pre id="dialog"></pre><h3>Latest result</h3><pre id="result"></pre></section>
 <section><h3>Context and simulator state (editable)</h3><textarea id="context" rows="32"></textarea></section>
 </div>
+</section>
+
 <script>
 const el = id => document.getElementById(id);
-let history = [], trace = [];
+let history = [], trace = [], busy = false;
+
+// ---------- mode switch ----------
+function setView(view) {
+  el("user-view").classList.toggle("hidden", view !== "user");
+  el("test-view").classList.toggle("hidden", view !== "test");
+  el("tab-user").classList.toggle("active", view === "user");
+  el("tab-test").classList.toggle("active", view === "test");
+  try { localStorage.setItem("recheck_view", view); } catch (e) {}
+  if (view === "user") el("user-input").focus();
+}
+el("tab-user").onclick = () => setView("user");
+el("tab-test").onclick = () => setView("test");
+
+// ---------- shared logic ----------
 async function reset() {
   const response = await fetch("/context");
   const data = await response.json();
@@ -35,22 +72,32 @@ async function reset() {
   el("dialog").textContent = "";
   el("result").textContent = "";
   el("status").textContent = "";
+  el("user-reply").textContent = "";
   history = [];
   trace = [];
 }
-el("reset").onclick = reset;
-el("send").onclick = async () => {
-  const utterance = el("utterance").value.trim();
-  if (!utterance) return;
+
+function describe(data) {
+  if (data.error) return "Sorry, I couldn't do that.";
+  const p = data.prediction;
+  if (p.decision === "clarify") return p.question;
+  if (p.decision === "unsupported") return "Sorry, I can't do that yet.";
+  const args = Object.values(p.arguments || {});
+  return "OK: " + p.tool + (args.length ? " (" + args.join(", ") + ")" : "");
+}
+
+// Sends one utterance; used by both views. Conversation state is shared.
+async function send(utterance) {
+  utterance = utterance.trim();
+  if (!utterance || busy) return null;
+  busy = true;
   el("send").disabled = true;
   el("reset").disabled = true;
+  el("user-input").disabled = true;
   el("status").textContent = "Processing...";
+  el("user-reply").textContent = "...";
   try {
-    const request = {
-      utterance,
-      context: JSON.parse(el("context").value),
-      history
-    };
+    const request = {utterance, context: JSON.parse(el("context").value), history};
     const response = await fetch("/infer", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -70,14 +117,25 @@ el("send").onclick = async () => {
         {role: "assistant", content: JSON.stringify(data.prediction)}
       ]).slice(-6);
     }
-    el("utterance").value = "";
     el("status").textContent = "Done; decision latency: " + data.latency_s.toFixed(2) + " seconds";
+    el("user-reply").textContent = describe(data);
+    return data;
   } catch (error) {
     el("status").textContent = error.message;
+    el("user-reply").textContent = "Error: " + error.message;
+    return null;
   } finally {
+    busy = false;
     el("send").disabled = false;
     el("reset").disabled = false;
+    el("user-input").disabled = false;
   }
+}
+
+// ---------- test view ----------
+el("reset").onclick = reset;
+el("send").onclick = async () => {
+  if (await send(el("utterance").value)) el("utterance").value = "";
 };
 el("export").onclick = () => {
   const url = URL.createObjectURL(new Blob(
@@ -89,6 +147,18 @@ el("export").onclick = () => {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
+
+// ---------- user view ----------
+el("user-input").addEventListener("keydown", async e => {
+  if (e.key !== "Enter" || e.isComposing) return;
+  if (await send(el("user-input").value)) el("user-input").value = "";
+  el("user-input").focus();
+});
+
+// ---------- init ----------
+let saved = "test";
+try { saved = localStorage.getItem("recheck_view") || "test"; } catch (e) {}
+setView(saved);
 reset().catch(error => el("status").textContent = error.message);
 </script>
 </html>
