@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReCheck Voice — Week 1</title>
+<style>
+body{font:16px system-ui;max-width:1050px;margin:35px auto;padding:0 20px;background:#f5f7fb;color:#182334}
+textarea,pre{box-sizing:border-box;width:100%;padding:12px;border:1px solid #ccd4e0;border-radius:8px;background:white}
+textarea{font:14px monospace}pre{white-space:pre-wrap;overflow-wrap:anywhere}
+button{padding:10px 18px;margin:10px 8px 10px 0;cursor:pointer}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:750px){.grid{grid-template-columns:1fr}}
+</style>
+<h1>ReCheck Voice</h1>
+<p>Week 1 | Text baseline | All actions run in the simulator</p>
+<p id="mode"></p>
+<textarea id="utterance" rows="3" placeholder="Example: Call Alex"></textarea>
+<button id="send">Send</button>
+<button id="reset">Reset conversation</button>
+<button id="export">Export conversation</button>
+<p id="status"></p>
+<div class="grid">
+<section><h3>Conversation</h3><pre id="dialog"></pre><h3>Latest result</h3><pre id="result"></pre></section>
+<section><h3>Context and simulator state (editable)</h3><textarea id="context" rows="32"></textarea></section>
+</div>
+<script>
+const el = id => document.getElementById(id);
+let history = [], trace = [];
+async function reset() {
+  const response = await fetch("/context");
+  const data = await response.json();
+  el("mode").textContent = "Backend: " + data.backend +
+    (data.backend === "mock" ? " (pipeline check only; always asks for clarification)" : " (local model)");
+  el("context").value = JSON.stringify(data.context, null, 2);
+  el("dialog").textContent = "";
+  el("result").textContent = "";
+  el("status").textContent = "";
+  history = [];
+  trace = [];
+}
+el("reset").onclick = reset;
+el("send").onclick = async () => {
+  const utterance = el("utterance").value.trim();
+  if (!utterance) return;
+  el("send").disabled = true;
+  el("reset").disabled = true;
+  el("status").textContent = "Processing...";
+  try {
+    const request = {
+      utterance,
+      context: JSON.parse(el("context").value),
+      history
+    };
+    const response = await fetch("/infer", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(request)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Request failed");
+    trace.push({request, response: data});
+    el("result").textContent = JSON.stringify(data, null, 2);
+    el("context").value = JSON.stringify(data.after, null, 2);
+    const answer = data.error ? "Output blocked: " + data.error :
+      (data.prediction.question || JSON.stringify(data.prediction));
+    el("dialog").textContent += "You: " + utterance + "\nModel: " + answer + "\n\n";
+    if (data.valid_plan) {
+      history = history.concat([
+        {role: "user", content: utterance},
+        {role: "assistant", content: JSON.stringify(data.prediction)}
+      ]).slice(-6);
+    }
+    el("utterance").value = "";
+    el("status").textContent = "Done; decision latency: " + data.latency_s.toFixed(2) + " seconds";
+  } catch (error) {
+    el("status").textContent = error.message;
+  } finally {
+    el("send").disabled = false;
+    el("reset").disabled = false;
+  }
+};
+el("export").onclick = () => {
+  const url = URL.createObjectURL(new Blob(
+    [JSON.stringify(trace, null, 2)], {type: "application/json"}
+  ));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "recheck_session.json";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+reset().catch(error => el("status").textContent = error.message);
+</script>
+</html>

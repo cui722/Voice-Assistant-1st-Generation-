@@ -1,0 +1,6 @@
+{
+  "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+  "revision": "main",
+  "max_input_tokens": 4096,
+  "max_new_tokens": 256
+}

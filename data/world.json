@@ -1,0 +1,80 @@
+{
+  "contacts": [
+    {
+      "id": "c_school",
+      "name": "Alex",
+      "label": "USC project group"
+    },
+    {
+      "id": "c_gym",
+      "name": "Alex",
+      "label": "Gym"
+    },
+    {
+      "id": "c_maya",
+      "name": "Maya Chen",
+      "label": "Classmate"
+    },
+    {
+      "id": "c_lin",
+      "name": "Lin Wang",
+      "label": "Colleague"
+    }
+  ],
+  "places": [
+    {
+      "id": "p_usc",
+      "name": "USC",
+      "label": "Campus"
+    },
+    {
+      "id": "p_lax",
+      "name": "LAX",
+      "label": "Airport"
+    },
+    {
+      "id": "p_coffee_school",
+      "name": "Starbucks",
+      "label": "Near campus"
+    },
+    {
+      "id": "p_coffee_home",
+      "name": "Starbucks",
+      "label": "Near home"
+    },
+    {
+      "id": "p_home",
+      "name": "Home",
+      "label": "Home"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "t_sunny",
+      "name": "Sunny Day",
+      "artist": "Jay Chou"
+    },
+    {
+      "id": "t_yellow",
+      "name": "Yellow",
+      "artist": "Coldplay"
+    },
+    {
+      "id": "t_adele",
+      "name": "Hello",
+      "artist": "Adele"
+    },
+    {
+      "id": "t_lionel",
+      "name": "Hello",
+      "artist": "Lionel Richie"
+    }
+  ],
+  "state": {
+    "pending_call": null,
+    "destination": null,
+    "track": null,
+    "playing": false,
+    "volume": 40
+  }
+}

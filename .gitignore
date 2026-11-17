@@ -1,0 +1,40 @@
+.venv/
+__pycache__/
+*.pyc
+runs/
+data/private/
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.cache/
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Runtime outputs and private data
+runs/
+outputs/
+wandb/
+data/private/
+recheck_session*.json
+
+# Model weights
+checkpoints/
+adapters/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.gguf
+
+# Local backups
+backups/
+*_before_english_*/
+*_before_followup_*/
